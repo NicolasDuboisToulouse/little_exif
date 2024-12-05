@@ -9,6 +9,7 @@ use std::path::Path;
 extern crate little_exif;
 use little_exif::metadata::Metadata;
 use little_exif::exif_tag::ExifTag;
+use little_exif::u8conversion::U8conversion;
 
 #[test]
 fn
@@ -656,4 +657,28 @@ compare_write_to_webp_extended()
 		"tests/sample2_extended_copy2.webp",
 		little_exif::filetype::FileExtension::WEBP
 	);
+}
+
+#[test]
+fn
+utf8_string()
+{
+    let ascii = "ASCII string".to_string();
+    assert_eq!([0x41, 0x53, 0x43, 0x49, 0x49, 0x20, 0x73, 0x74, 0x72, 0x69, 0x6E, 0x67], ascii.as_bytes());
+    let vec = ascii.to_u8_vec(&little_exif::endian::Endian::Big);
+    assert_eq!([0x41, 0x53, 0x43, 0x49, 0x49, 0x20, 0x73, 0x74, 0x72, 0x69, 0x6E, 0x67, 0x00], vec.as_slice());
+    let ascii_reverted = String::from_u8_vec(&vec, &little_exif::endian::Endian::Big);
+    assert_eq!(ascii, ascii_reverted);
+    assert_eq!([0x41, 0x53, 0x43, 0x49, 0x49, 0x20, 0x73, 0x74, 0x72, 0x69, 0x6E, 0x67], ascii_reverted.as_bytes());
+
+    // The EXIF standard do not explain how to deal with extended ASCII byte: 0x80-0xFF.
+    // They can be read into iso-latin-1, CP-1252 or not supported (or other ways...).
+    // We read them as utf8 x-bytes char, that is not EXIF-standard compliant, but work will most other tools.
+    let utf8 = "têtu".to_string();
+    assert_eq!([0x74, 0xC3, 0xAA, 0x74, 0x75], utf8.as_bytes());
+    let vec = utf8.to_u8_vec(&little_exif::endian::Endian::Big);
+    assert_eq!([0x74, 0xC3, 0xAA, 0x74, 0x75, 0x00], vec.as_slice());
+    let utf8_reverted = String::from_u8_vec(&vec, &little_exif::endian::Endian::Big);
+    assert_eq!(utf8, utf8_reverted);
+    assert_eq!([0x74, 0xC3, 0xAA, 0x74, 0x75], utf8_reverted.as_bytes());
 }

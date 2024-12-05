@@ -97,9 +97,12 @@ impl U8conversion<String> for String
 	)
 	-> Vec<u8>
 	{
+        // The EXIF standard do not explain how to deal with extended ASCII byte: 0x80-0xFF.
+        // They can be read into iso-latin-1, CP-1252 or not supported (or other ways...).
+        // We read them as utf8 x-bytes char, that is not EXIF-standard compliant, but work will most other tools.
 		let mut u8_vec = self.as_bytes().to_vec();
-		u8_vec.push(0x00 as u8);
-		return u8_vec;
+		u8_vec.push(0x00);
+		u8_vec
 	}
 
 	fn
@@ -110,22 +113,21 @@ impl U8conversion<String> for String
 	)
 	-> String
 	{
-		if u8_vec.len() % 1 != 0 
-		{
-			panic!("from_u8_vec (String): Mangled EXIF data encountered!")
-		}
-
-		let mut result = String::new();
-
-		for byte in u8_vec
-		{
-			if *byte > 0
-			{
-				result.push(*byte as char);
-			}
-		}
-
-		return result;
+        // The EXIF standard do not explain how to deal with extended ASCII byte: 0x80-0xFF.
+        // They can be read into iso-latin-1, CP-1252 or not supported (or other ways...).
+        // We read them as utf8 x-bytes char, that is not EXIF-standard compliant, but work will most other tools.
+        if let Some(last) = u8_vec.last() {
+            let u8_vec = if *last == 0u8 {
+                let mut u8_vec = u8_vec.clone();
+                u8_vec.pop();
+                u8_vec
+            } else {
+                u8_vec.clone()
+            };
+            String::from_utf8(u8_vec.to_vec()).expect("from_u8_vec (String): Invlaid EXIF ASCII/UTF8 data")
+        } else {
+            String::new()
+        }
 	}
 }
 
